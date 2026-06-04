@@ -9,7 +9,7 @@ from google.genai import types
 from langgraph.graph import StateGraph, END
 from PIL import Image
 import pytesseract
-from coordinate_tool import find_phrase_coordinates
+from tools.spatial_geometry import find_phrase_coordinates
 from dotenv import load_dotenv
 load_dotenv()
 

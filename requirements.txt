@@ -1,0 +1,6 @@
+google-genai
+langgraph
+pydantic
+Pillow
+pytesseract
+python-dotenv

@@ -3,6 +3,4 @@
 *.db
 __pycache__
 venv
-cvip
 dataset
-scripts
