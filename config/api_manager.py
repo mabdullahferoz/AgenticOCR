@@ -54,14 +54,16 @@ class APIKeyRotator:
                     config=types.GenerateContentConfig(**config_args)
                 )
                 return response
-            except genai.errors.ClientError as e:
-                if e.code == 429 or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"[WARNING] [Attempt {attempt + 1}/{max_attempts} Failed]: Hit rate limitation.")
+            except Exception as e:
+                error_str = str(e)
+                error_code = getattr(e, "code", None)
+                if error_code in (403, 429) or "RESOURCE_EXHAUSTED" in error_str or "PERMISSION_DENIED" in error_str or "403" in error_str or "429" in error_str:
+                    print(f"[WARNING] [Attempt {attempt + 1}/{max_attempts} Failed]: API Error (Quota/Permission). Rotating key...")
                     if not self.rotate_key():
                         raise e
                 else:
                     raise e
                     
-        raise genai.errors.ClientError("[ERROR] All API keys in the managed rotation pool have been exhausted.")
+        raise Exception("[ERROR] All API keys in the managed rotation pool have been exhausted.")
 
 api_orchestrator = APIKeyRotator()

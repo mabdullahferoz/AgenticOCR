@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { agentApi } from '../services/api';
 import { Send, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 
@@ -109,7 +110,7 @@ export default function ChatWindow({ setGraphState, isUploading }) {
                 {msg.imageBlobUrl && (
                   <img src={msg.imageBlobUrl} alt="Uploaded snippet" className="max-w-[200px] sm:max-w-[300px] w-full rounded-xl mb-3 shadow-sm border border-white/20" />
                 )}
-                <ReactMarkdown>{msg.text}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
               </div>
             </div>
           </div>

@@ -88,9 +88,11 @@ class APIKeyRotator:
                 )
                 return response
                 
-            except genai.errors.ClientError as e:
+            except Exception as e:
                 # Inspect if the error payload explicitly points to an explicit 429 quota block or 403 permission denied
-                if e.code in (403, 429) or "RESOURCE_EXHAUSTED" in str(e) or "PERMISSION_DENIED" in str(e):
+                error_str = str(e)
+                error_code = getattr(e, "code", None)
+                if error_code in (403, 429) or "RESOURCE_EXHAUSTED" in error_str or "PERMISSION_DENIED" in error_str or "403" in error_str or "429" in error_str:
                     print(f"⚠️ [Attempt {attempt + 1}/{max_attempts} Failed]: API Error (Quota/Permission). Rotating key...")
                     rotated_successfully = self.rotate_key()
                     if not rotated_successfully:
@@ -99,7 +101,7 @@ class APIKeyRotator:
                     # Bubble up other authentic exceptions instantly (e.g., structural syntax errors)
                     raise e
                     
-        raise genai.errors.ClientError("❌ All API keys in the managed rotation pool have been completely exhausted for this cycle.")
+        raise Exception("❌ All API keys in the managed rotation pool have been completely exhausted for this cycle.")
 
 # Instantiate the pool wrapper globally inside your script scope
 api_orchestrator = APIKeyRotator()
