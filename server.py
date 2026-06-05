@@ -6,6 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
+from PIL import Image
+import pytesseract
+
+# Ensure Tesseract binary path is linked for Windows environment execution
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Import your pristine compiled multi-agent graph workflow system
 from agents.graph import agent_system
@@ -170,6 +175,89 @@ async def fetch_document_canvas_image(filename: str):
         raise HTTPException(status_code=404, detail=f"Requested page layout canvas item '{clean_filename}' not found.")
         
     return FileResponse(target_image_path)
+
+# =======================================================
+# ENDPOINT 5: DOCUMENT UPLOAD & INDEXING ROUTE
+# =======================================================
+@app.post("/api/index-document")
+async def index_uploaded_document(files: list[UploadFile] = File(...)):
+    """Uploads new document images, runs spatial OCR, and updates the local spatial RAG database."""
+    results = []
+    try:
+        os.makedirs(DATASET_IMAGES_DIR, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        for file in files:
+            try:
+                # 1. Save file to DATASET_IMAGES_DIR
+                file_path = os.path.join(DATASET_IMAGES_DIR, file.filename)
+                with open(file_path, "wb") as buffer:
+                    buffer.write(await file.read())
+                    
+                print(f"[Server API]: Staged document image for indexing: {file_path}")
+                
+                # 2. Run Tesseract OCR to get spatial map
+                img = Image.open(file_path).convert('L')
+                ocr_data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+                
+                spatial_map = []
+                full_text_words = []
+                n_boxes = len(ocr_data['text'])
+                for i in range(n_boxes):
+                    text = ocr_data['text'][i]
+                    if text.strip():  # ignore empty strings
+                        word_info = {
+                            "word": text,
+                            "top": ocr_data['top'][i],
+                            "bottom": ocr_data['top'][i] + ocr_data['height'][i],
+                            "left": ocr_data['left'][i],
+                            "right": ocr_data['left'][i] + ocr_data['width'][i]
+                        }
+                        spatial_map.append(word_info)
+                        full_text_words.append(text)
+                        
+                full_text = " ".join(full_text_words)
+                spatial_map_json = json.dumps(spatial_map)
+                
+                # 3. Insert into database
+                # Insert or ignore document (assume page_number = 1 for simplicity if it's an image)
+                cursor.execute("INSERT OR IGNORE INTO documents (file_name, file_path) VALUES (?, ?)", (file.filename, file_path))
+                cursor.execute("SELECT id FROM documents WHERE file_name = ?", (file.filename,))
+                doc_row = cursor.fetchone()
+                if not doc_row:
+                    raise Exception("Failed to insert document.")
+                document_id = doc_row[0]
+                
+                # Insert page (we use REPLACE or standard insertion; assuming UNIQUE(document_id, page_number) handles conflicts)
+                cursor.execute(
+                    "INSERT OR REPLACE INTO document_pages (document_id, page_number, full_text, spatial_map) VALUES (?, ?, ?, ?)",
+                    (document_id, 1, full_text, spatial_map_json)
+                )
+                
+                results.append({
+                    "file_name": file.filename,
+                    "status": "success",
+                    "words_found": len(full_text_words)
+                })
+            except Exception as file_e:
+                print(f"[ERROR] Indexing file {file.filename} failed: {str(file_e)}")
+                results.append({
+                    "file_name": file.filename,
+                    "status": "error",
+                    "error": str(file_e)
+                })
+                
+        conn.commit()
+        conn.close()
+        
+        return {
+            "status": "completed",
+            "results": results
+        }
+    except Exception as e:
+        print(f"[ERROR] Indexing Batch Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Indexing Batch Error: {str(e)}")
 
 
 if __name__ == "__main__":

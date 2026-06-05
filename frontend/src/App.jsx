@@ -13,6 +13,9 @@ export default function App() {
 
   // Theme Management
   const [theme, setTheme] = useState('dark');
+  
+  // Document Upload State
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -30,6 +33,8 @@ export default function App() {
         setActivePanel={setActivePanel} 
         theme={theme}
         setTheme={setTheme}
+        isUploading={isUploading}
+        setIsUploading={setIsUploading}
       />
       
       {/* 2. Responsive Split-Pane Panel Architecture Matrix */}
@@ -39,7 +44,7 @@ export default function App() {
         <div className={`glass-panel rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col transition-all duration-500 ease-in-out min-h-0 ${
           activePanel !== 'none' ? 'h-1/2 lg:h-full lg:w-1/2 w-full' : 'h-full w-full max-w-5xl mx-auto'
         }`}>
-          <ChatWindow setGraphState={setGraphState} />
+          <ChatWindow setGraphState={setGraphState} isUploading={isUploading} />
         </div>
 
         {/* Right Panel Workspace: Mounts and slides smoothly into view */}

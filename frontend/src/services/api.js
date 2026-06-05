@@ -45,4 +45,21 @@ export const agentApi = {
     const response = await apiClient.get('/analytics');
     return response.data;
   },
+
+  /**
+   * Uploads multiple documents for OCR indexing into the spatial DB
+   */
+  indexDocuments: async (files) => {
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append('files', files[i]);
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/index-document`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
 };

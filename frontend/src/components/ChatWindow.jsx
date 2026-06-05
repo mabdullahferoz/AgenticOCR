@@ -1,14 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { agentApi } from '../services/api';
 import { Send, Image as ImageIcon, Loader2, AlertCircle } from 'lucide-react';
 
-export default function ChatWindow({ setGraphState }) {
+export default function ChatWindow({ setGraphState, isUploading }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmationState, setConfirmationState] = useState({ active: false, word: null });
   const fileInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   const handleSubmit = async (textToSend, isConfirmationReply = false, confirmVal = null) => {
     const queryText = textToSend || input.trim();
@@ -111,6 +120,7 @@ export default function ChatWindow({ setGraphState }) {
             <span>Agent network computing...</span>
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Dynamic Multi-Turn Typo Auto-Correction Widget Option Panel Overlay */}
@@ -130,7 +140,7 @@ export default function ChatWindow({ setGraphState }) {
       {/* Input Action Dock Toolbar */}
       <div className="flex items-center gap-3 pt-2 relative">
         <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-        <button onClick={() => fileInputRef.current.click()} disabled={loading} className="p-3.5 glass-button rounded-xl disabled:opacity-50 group flex-shrink-0" title="Upload Image">
+        <button onClick={() => fileInputRef.current.click()} disabled={loading || isUploading} className="p-3.5 glass-button rounded-xl disabled:opacity-50 group flex-shrink-0" title="Upload Image">
           <ImageIcon className="w-5 h-5 text-zinc-400 group-hover:text-zinc-200 transition-colors" strokeWidth={1.5} />
         </button>
         <div className="relative flex-grow">
@@ -139,13 +149,13 @@ export default function ChatWindow({ setGraphState }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            disabled={loading || confirmationState.active}
-            placeholder={confirmationState.active ? "Please use correction buttons above..." : "Ask the intelligence agent..."}
+            disabled={loading || confirmationState.active || isUploading}
+            placeholder={isUploading ? "Uploading documents..." : confirmationState.active ? "Please use correction buttons above..." : "Ask the intelligence agent..."}
             className="w-full bg-white dark:bg-white/5 border border-zinc-200 dark:border-white/10 text-zinc-800 dark:text-zinc-200 rounded-2xl pl-5 pr-14 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent disabled:opacity-40 transition-all placeholder-zinc-400 dark:placeholder-zinc-500 shadow-inner"
           />
           <button 
             onClick={() => handleSubmit()} 
-            disabled={loading || confirmationState.active || !input.trim()} 
+            disabled={loading || confirmationState.active || isUploading || !input.trim()} 
             className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl disabled:opacity-50 disabled:hover:bg-indigo-500 transition-all shadow-md"
           >
             <Send className="w-4 h-4" strokeWidth={2} />

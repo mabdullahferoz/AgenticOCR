@@ -89,9 +89,9 @@ class APIKeyRotator:
                 return response
                 
             except genai.errors.ClientError as e:
-                # Inspect if the error payload explicitly points to an explicit 429 quota block
-                if e.code == 429 or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"⚠️ [Attempt {attempt + 1}/{max_attempts} Failed]: Hit rate limitation threshold.")
+                # Inspect if the error payload explicitly points to an explicit 429 quota block or 403 permission denied
+                if e.code in (403, 429) or "RESOURCE_EXHAUSTED" in str(e) or "PERMISSION_DENIED" in str(e):
+                    print(f"⚠️ [Attempt {attempt + 1}/{max_attempts} Failed]: API Error (Quota/Permission). Rotating key...")
                     rotated_successfully = self.rotate_key()
                     if not rotated_successfully:
                         raise e # No more keys left to use, bubble up error safely
