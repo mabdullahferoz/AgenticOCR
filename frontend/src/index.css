@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Custom scrollbar for a sleek minimalist look */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism utility */
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/70 dark:bg-zinc-900/60 backdrop-blur-xl border border-zinc-200 dark:border-white/5 shadow-2xl;
+  }
+  
+  .glass-button {
+    @apply bg-zinc-100 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10 border border-zinc-200 dark:border-white/5 transition-all duration-300;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Markdown prose styling (Light and Dark) */
+.prose table {
+  width: 100%;
+  margin-top: 1em;
+  margin-bottom: 1em;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.prose th {
+  color: #52525b; /* zinc-600 */
+  font-weight: 600;
+  padding: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+.dark .prose th {
+  color: #a1a1aa; /* zinc-400 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.prose td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  color: #3f3f46; /* zinc-700 */
+}
+.dark .prose td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e4e4e7; /* zinc-200 */
+}
+
+.prose tr:hover td {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+.dark .prose tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.prose p {
+  color: #3f3f46;
+  line-height: 1.6;
+}
+.dark .prose p {
+  color: #e4e4e7;
+}
+
+.prose strong {
+  color: #18181b;
+  font-weight: 600;
+}
+.dark .prose strong {
+  color: #fff;
+}
+
+.prose code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #6366f1; /* indigo-500 */
+}
+.dark .prose code {
+  background: rgba(255, 255, 255, 0.1);
+  color: #a78bfa; /* violet-400 */
+}

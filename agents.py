@@ -127,6 +127,10 @@ class IntentExtractor(BaseModel):
         default=None, 
         description="If the user mentions a specific page/file parameter (e.g., 'page 95', 'inside page (12)'), extract the integer and format it strictly as 'page (X).png'. Otherwise, leave null."
     )
+    occurrence_position: Optional[str] = Field(
+        default="all",
+        description="If the user asks for the 'last' or 'final' instance, set this to 'last'. If they ask for 'first', set to 'first'. Otherwise 'all'."
+    )
 
 class AgenticSystemState(TypedDict):
     user_input: str
@@ -141,7 +145,6 @@ class AgenticSystemState(TypedDict):
     suggested_correction: Optional[str]
 
 # Initialize Client
-client = genai.Client()
 MODEL_ID = 'gemini-2.5-flash'
 
 
@@ -345,6 +348,7 @@ def autonomous_retrieval_agent(state: AgenticSystemState):
         constraints["intent_type"] = decision_json.get("intent_type", "LOCATION")
         constraints["limit_occurrence"] = decision_json.get("limit_occurrence")
         constraints["target_file"] = decision_json.get("target_file")
+        constraints["occurrence_position"] = decision_json.get("occurrence_position", "all")
         
         print(f"[Intent Refiner Discovery] -> Type: {constraints['intent_type']} | Target: '{resolved_query}' | Scope: {constraints['target_file']}")
         
@@ -394,6 +398,7 @@ def autonomous_spatial_agent(state: AgenticSystemState):
     spatial_logs = []
     total_occurrences = 0
     limit = constraints.get("limit_occurrence")
+    position = constraints.get("occurrence_position", "all")
     
     for file_name, page_num, spatial_map_str in raw_hits:
         if limit and total_occurrences >= limit:
@@ -415,6 +420,19 @@ def autonomous_spatial_agent(state: AgenticSystemState):
                     "occurrences_found": len(phrase_boxes),
                     "tblr_coordinates": phrase_boxes
                 })
+
+    if position == "last" and spatial_logs:
+        last_log = spatial_logs[-1].copy()
+        last_log["tblr_coordinates"] = [last_log["tblr_coordinates"][-1]]
+        last_log["occurrences_found"] = 1
+        spatial_logs = [last_log]
+        total_occurrences = 1
+    elif position == "first" and spatial_logs:
+        first_log = spatial_logs[0].copy()
+        first_log["tblr_coordinates"] = [first_log["tblr_coordinates"][0]]
+        first_log["occurrences_found"] = 1
+        spatial_logs = [first_log]
+        total_occurrences = 1
 
     return {
         "calculated_geometry": spatial_logs,

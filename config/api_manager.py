@@ -19,7 +19,7 @@ class APIKeyRotator:
             if default_key:
                 self.api_keys = [default_key]
             else:
-                raise ValueError("❌ Critical Error: No Gemini API keys found in your environment configuration.")
+                raise ValueError("[ERROR] Critical Error: No Gemini API keys found in your environment configuration.")
 
         self.current_index = 0
         print(f"[API Guard]: Initialized key pool with {len(self.api_keys)} available keys.")
@@ -34,7 +34,7 @@ class APIKeyRotator:
         self.current_index = (self.current_index + 1) % len(self.api_keys)
         new_key = self.api_keys[self.current_index]
         masked_key = f"...{new_key[-6:]}" if len(new_key) > 6 else "???"
-        print(f"\n🔄 [API Guard ALERT]: Quota exhausted! Rotating to API Key Index [{self.current_index}] (Ends in: {masked_key})")
+        print(f"\n[API Guard ALERT]: Quota exhausted! Rotating to API Key Index [{self.current_index}] (Ends in: {masked_key})")
         
         self.client = genai.Client(api_key=new_key)
         return True
@@ -56,12 +56,12 @@ class APIKeyRotator:
                 return response
             except genai.errors.ClientError as e:
                 if e.code == 429 or "RESOURCE_EXHAUSTED" in str(e):
-                    print(f"⚠️ [Attempt {attempt + 1}/{max_attempts} Failed]: Hit rate limitation.")
+                    print(f"[WARNING] [Attempt {attempt + 1}/{max_attempts} Failed]: Hit rate limitation.")
                     if not self.rotate_key():
                         raise e
                 else:
                     raise e
                     
-        raise genai.errors.ClientError("❌ All API keys in the managed rotation pool have been exhausted.")
+        raise genai.errors.ClientError("[ERROR] All API keys in the managed rotation pool have been exhausted.")
 
 api_orchestrator = APIKeyRotator()

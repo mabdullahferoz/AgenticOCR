@@ -20,3 +20,7 @@ class IntentExtractor(BaseModel):
         default=None, 
         description="If the user mentions a specific page/file parameter (e.g., 'page 95', 'inside page (12)'), extract the integer and format it strictly as 'page (X).png'. Otherwise, leave null."
     )
+    occurrence_position: Optional[str] = Field(
+        default="all",
+        description="If the user asks for the 'last' or 'final' instance, set this to 'last'. If they ask for 'first', set to 'first'. Otherwise 'all'."
+    )
