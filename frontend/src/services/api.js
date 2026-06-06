@@ -49,11 +49,12 @@ export const agentApi = {
   /**
    * Uploads multiple documents for OCR indexing into the spatial DB
    */
-  indexDocuments: async (files) => {
+  indexDocuments: async (files, bookName) => {
     const formData = new FormData();
     for (let i = 0; i < files.length; i++) {
       formData.append('files', files[i]);
     }
+    formData.append('book_name', bookName);
     
     const response = await axios.post(`${API_BASE_URL}/index-document`, formData, {
       headers: {

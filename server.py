@@ -1,7 +1,7 @@
 import os
 import json
 import sqlite3
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -165,14 +165,15 @@ async def get_system_database_metrics():
 # =======================================================
 # ENDPOINT 4: STATIC FILE STREAM HANDLER (PAGE STREAMER)
 # =======================================================
-@app.get("/api/view-page/{filename}")
-async def fetch_document_canvas_image(filename: str):
+@app.get("/api/view-page/{document_name}/{page_filename}")
+async def fetch_document_canvas_image(document_name: str, page_filename: str):
     """Streams a requested page layout canvas image straight to React to render custom polygon box highlights."""
-    clean_filename = os.path.basename(filename) # Path traversal sanitization sweep
-    target_image_path = os.path.join(DATASET_IMAGES_DIR, clean_filename)
+    clean_doc = os.path.basename(document_name) # Path traversal sanitization sweep
+    clean_page = os.path.basename(page_filename)
+    target_image_path = os.path.join(BASE_DIR, "dataset", clean_doc, clean_page)
     
     if not os.path.exists(target_image_path):
-        raise HTTPException(status_code=404, detail=f"Requested page layout canvas item '{clean_filename}' not found.")
+        raise HTTPException(status_code=404, detail=f"Requested page layout canvas item '{clean_page}' not found in '{clean_doc}'.")
         
     return FileResponse(target_image_path)
 
@@ -180,18 +181,43 @@ async def fetch_document_canvas_image(filename: str):
 # ENDPOINT 5: DOCUMENT UPLOAD & INDEXING ROUTE
 # =======================================================
 @app.post("/api/index-document")
-async def index_uploaded_document(files: list[UploadFile] = File(...)):
+async def index_uploaded_document(
+    files: list[UploadFile] = File(...),
+    book_name: str = Form(...)
+):
     """Uploads new document images, runs spatial OCR, and updates the local spatial RAG database."""
     results = []
     try:
-        os.makedirs(DATASET_IMAGES_DIR, exist_ok=True)
+        book_name_lower = book_name.strip().lower()
+        if not book_name_lower:
+            raise HTTPException(status_code=400, detail="Book name cannot be empty.")
+            
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         
-        for file in files:
+        # Check if book already exists (case-insensitive check)
+        cursor.execute("SELECT id FROM documents WHERE LOWER(file_name) = ?", (book_name_lower,))
+        if cursor.fetchone():
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"Book name '{book_name}' already exists. Please choose a unique name.")
+            
+        book_dir = os.path.join(BASE_DIR, "dataset", book_name.strip())
+        os.makedirs(book_dir, exist_ok=True)
+        
+        # Insert book
+        cursor.execute("INSERT INTO documents (file_name, file_path) VALUES (?, ?)", (book_name.strip(), book_dir))
+        document_id = cursor.lastrowid
+        
+        for i, file in enumerate(files):
             try:
-                # 1. Save file to DATASET_IMAGES_DIR
-                file_path = os.path.join(DATASET_IMAGES_DIR, file.filename)
+                page_num = i + 1
+                _, ext = os.path.splitext(file.filename)
+                if not ext:
+                    ext = ".png"
+                page_file_name = f"page ({page_num}){ext}"
+                
+                # 1. Save file to book directory
+                file_path = os.path.join(book_dir, page_file_name)
                 with open(file_path, "wb") as buffer:
                     buffer.write(await file.read())
                     
@@ -204,15 +230,15 @@ async def index_uploaded_document(files: list[UploadFile] = File(...)):
                 spatial_map = []
                 full_text_words = []
                 n_boxes = len(ocr_data['text'])
-                for i in range(n_boxes):
-                    text = ocr_data['text'][i]
+                for i_box in range(n_boxes):
+                    text = ocr_data['text'][i_box]
                     if text.strip():  # ignore empty strings
                         word_info = {
                             "word": text,
-                            "top": ocr_data['top'][i],
-                            "bottom": ocr_data['top'][i] + ocr_data['height'][i],
-                            "left": ocr_data['left'][i],
-                            "right": ocr_data['left'][i] + ocr_data['width'][i]
+                            "top": ocr_data['top'][i_box],
+                            "bottom": ocr_data['top'][i_box] + ocr_data['height'][i_box],
+                            "left": ocr_data['left'][i_box],
+                            "right": ocr_data['left'][i_box] + ocr_data['width'][i_box]
                         }
                         spatial_map.append(word_info)
                         full_text_words.append(text)
@@ -220,23 +246,14 @@ async def index_uploaded_document(files: list[UploadFile] = File(...)):
                 full_text = " ".join(full_text_words)
                 spatial_map_json = json.dumps(spatial_map)
                 
-                # 3. Insert into database
-                # Insert or ignore document (assume page_number = 1 for simplicity if it's an image)
-                cursor.execute("INSERT OR IGNORE INTO documents (file_name, file_path) VALUES (?, ?)", (file.filename, file_path))
-                cursor.execute("SELECT id FROM documents WHERE file_name = ?", (file.filename,))
-                doc_row = cursor.fetchone()
-                if not doc_row:
-                    raise Exception("Failed to insert document.")
-                document_id = doc_row[0]
-                
-                # Insert page (we use REPLACE or standard insertion; assuming UNIQUE(document_id, page_number) handles conflicts)
+                # Insert page
                 cursor.execute(
-                    "INSERT OR REPLACE INTO document_pages (document_id, page_number, full_text, spatial_map) VALUES (?, ?, ?, ?)",
-                    (document_id, 1, full_text, spatial_map_json)
+                    "INSERT INTO document_pages (document_id, page_number, page_file_name, full_text, spatial_map) VALUES (?, ?, ?, ?, ?)",
+                    (document_id, page_num, page_file_name, full_text, spatial_map_json)
                 )
                 
                 results.append({
-                    "file_name": file.filename,
+                    "file_name": page_file_name,
                     "status": "success",
                     "words_found": len(full_text_words)
                 })
@@ -255,6 +272,8 @@ async def index_uploaded_document(files: list[UploadFile] = File(...)):
             "status": "completed",
             "results": results
         }
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"[ERROR] Indexing Batch Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Indexing Batch Error: {str(e)}")

@@ -23,6 +23,7 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
             document_id INTEGER, 
             page_number INTEGER DEFAULT 1,
+            page_file_name TEXT NOT NULL,
             full_text TEXT, 
             spatial_map TEXT, 
             FOREIGN KEY (document_id) REFERENCES documents (id),

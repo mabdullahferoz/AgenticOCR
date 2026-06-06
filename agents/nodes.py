@@ -17,14 +17,14 @@ def query_local_database(search_phrase: str, target_file: str = None) -> str:
     cursor = conn.cursor()
     if target_file:
         cursor.execute("""
-            SELECT d.file_name, dp.page_number, dp.spatial_map 
+            SELECT d.file_name, dp.page_number, dp.page_file_name, dp.spatial_map 
             FROM document_pages dp
             JOIN documents d ON dp.document_id = d.id
             WHERE LOWER(dp.full_text) LIKE ? AND d.file_name = ?
         """, (f"%{search_phrase.lower()}%", target_file))
     else:
         cursor.execute("""
-            SELECT d.file_name, dp.page_number, dp.spatial_map 
+            SELECT d.file_name, dp.page_number, dp.page_file_name, dp.spatial_map 
             FROM document_pages dp
             JOIN documents d ON dp.document_id = d.id
             WHERE LOWER(dp.full_text) LIKE ?
@@ -186,7 +186,7 @@ def autonomous_spatial_agent(state: AgenticSystemState):
     limit = constraints.get("limit_occurrence")
     position = constraints.get("occurrence_position", "all")
     
-    for file_name, page_num, spatial_map_str in raw_hits:
+    for file_name, page_num, page_file_name, spatial_map_str in raw_hits:
         if limit and total_occurrences >= limit:
             break
         spatial_map = json.loads(spatial_map_str) if isinstance(spatial_map_str, str) else spatial_map_str
@@ -200,7 +200,7 @@ def autonomous_spatial_agent(state: AgenticSystemState):
             if phrase_boxes:
                 total_occurrences += len(phrase_boxes)
                 spatial_logs.append({
-                    "file_name": file_name, "page": page_num,
+                    "file_name": file_name, "page": page_num, "page_file_name": page_file_name,
                     "occurrences_found": len(phrase_boxes), "tblr_coordinates": phrase_boxes
                 })
 
@@ -235,7 +235,7 @@ def conversational_synthesis_agent(state: AgenticSystemState):
     STYLING INSTRUCTIONS:
     - If intent is 'COUNT', state the occurrence metrics conversationally.
     - If intent is 'VERIFICATION', respond with a clear confirmation statement.
-    - If coordinates are present, format them cleanly using clean Markdown layout tables or lists.
+    - If coordinates are present, format them cleanly using clean Markdown layout tables.
     - Always wrap structural file names like 'page (X).png' in clean bold markers.
     """
     context_payload = f"Input: {user_original_prompt} | Target: {resolved_query} | Type: {constraints.get('intent_type')} | Total: {total_matches} | Boxes: {json.dumps(geometry_facts)} | Tokens: {json.dumps(tokens)}"

@@ -74,7 +74,9 @@ export default function DocumentViewer({ graphState }) {
               >
                 <div className="flex items-center gap-2 truncate">
                   <FileText className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-                  <span className="text-xs font-medium truncate">{item.file_name}</span>
+                  <span className="text-xs font-medium truncate">
+                    Book: {item.file_name} - Page {item.page}
+                  </span>
                 </div>
                 {selectedFile?.file_name === item.file_name && <ChevronRight className="w-4 h-4 shrink-0 opacity-50" />}
               </button>
@@ -91,24 +93,29 @@ export default function DocumentViewer({ graphState }) {
             </div>
           ) : (
             <div className="flex flex-col h-full w-full">
-              {/* Zoom Controls Banner */}
-              <div className="flex items-center justify-center gap-4 bg-white/90 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 p-2 z-50 shrink-0 shadow-sm">
-                <button 
-                  onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors font-bold"
-                >-</button>
-                <span className="text-xs font-medium w-12 text-center text-zinc-600 dark:text-zinc-300">{Math.round(zoomLevel * 100)}%</span>
-                <button 
-                  onClick={() => setZoomLevel(prev => Math.min(4, prev + 0.25))}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors font-bold"
-                >+</button>
-                <button 
-                  onClick={() => {
-                    setZoomLevel(1);
-                    setPosition({ x: 0, y: 0 });
-                  }}
-                  className="text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 ml-2 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg text-indigo-500 transition-colors"
-                >Reset View</button>
+              {/* Zoom Controls & Title Banner */}
+              <div className="flex items-center justify-between bg-white/90 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 p-2 z-50 shrink-0 shadow-sm px-4">
+                <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 truncate pr-4">
+                  Book: {selectedFile.file_name} <span className="opacity-40 mx-2">|</span> Page: {selectedFile.page}
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <button 
+                    onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.25))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors font-bold"
+                  >-</button>
+                  <span className="text-xs font-medium w-12 text-center text-zinc-600 dark:text-zinc-300">{Math.round(zoomLevel * 100)}%</span>
+                  <button 
+                    onClick={() => setZoomLevel(prev => Math.min(4, prev + 0.25))}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300 transition-colors font-bold"
+                  >+</button>
+                  <button 
+                    onClick={() => {
+                      setZoomLevel(1);
+                      setPosition({ x: 0, y: 0 });
+                    }}
+                    className="text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 ml-2 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg text-indigo-500 transition-colors"
+                  >Reset View</button>
+                </div>
               </div>
 
               {/* Draggable Canvas Area */}
@@ -135,7 +142,7 @@ export default function DocumentViewer({ graphState }) {
                 >
                   <img
                     ref={imgRef}
-                    src={`http://127.0.0.1:8000/api/view-page/${selectedFile.file_name}`}
+                    src={`http://127.0.0.1:8000/api/view-page/${selectedFile.file_name}/${selectedFile.page_file_name}`}
                     alt="Document Layout"
                     className="block rounded-lg shadow-lg pointer-events-none"
                     style={{ maxWidth: '100%', maxHeight: '70vh' }}

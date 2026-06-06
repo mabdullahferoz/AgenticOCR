@@ -4,4 +4,3 @@ pydantic
 Pillow
 pytesseract
 python-dotenv
-flet[all]
