@@ -3,3 +3,4 @@ api_keys.json
 __pycache__
 venv
 dataset
+temp_queries

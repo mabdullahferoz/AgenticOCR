@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any
 from google import genai
@@ -5,26 +6,53 @@ from google.genai import types
 
 class APIKeyRotator:
     def __init__(self):
-        self.api_keys = [
+        self.api_keys = self._load_api_keys()
+
+        self.current_index = 0
+        self.model_id = 'gemini-2.5-flash'
+        self.client = None
+
+        if self.api_keys:
+            print(f"[API Guard]: Initialized key pool with {len(self.api_keys)} available keys.")
+            self.client = genai.Client(api_key=self.api_keys[self.current_index])
+        else:
+            print("[API Guard]: No Gemini API keys found. Server will start, but Gemini-backed routes will fail until a key is configured.")
+
+    def _load_api_keys(self):
+        env_keys = [
             os.getenv("GEMINI_API_KEY_1"),
             os.getenv("GEMINI_API_KEY_2"),
             os.getenv("GEMINI_API_KEY_3"),
             os.getenv("GEMINI_API_KEY_4"),
             os.getenv("GEMINI_API_KEY_5"),
+            os.getenv("GEMINI_API_KEY"),
         ]
-        self.api_keys = [k for k in self.api_keys if k]
-        
-        if not self.api_keys:
-            default_key = os.getenv("GEMINI_API_KEY")
-            if default_key:
-                self.api_keys = [default_key]
-            else:
-                raise ValueError("[ERROR] Critical Error: No Gemini API keys found in your environment configuration.")
+        keys = [key for key in env_keys if key]
 
-        self.current_index = 0
-        print(f"[API Guard]: Initialized key pool with {len(self.api_keys)} available keys.")
-        self.client = genai.Client(api_key=self.api_keys[self.current_index])
-        self.model_id = 'gemini-2.5-flash'
+        if keys:
+            return keys
+
+        api_keys_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "api_keys.json")
+        if not os.path.exists(api_keys_path):
+            return []
+
+        try:
+            with open(api_keys_path, "r", encoding="utf-8") as file:
+                config = json.load(file)
+        except (OSError, json.JSONDecodeError):
+            return []
+
+        gemini_config = config.get("gemini", {}) if isinstance(config, dict) else {}
+        file_keys = []
+        for entry in gemini_config.get("api_keys", []):
+            if isinstance(entry, dict):
+                api_key = entry.get("api_key")
+                if api_key:
+                    file_keys.append(api_key)
+            elif isinstance(entry, str) and entry:
+                file_keys.append(entry)
+
+        return file_keys
 
     def rotate_key(self):
         if len(self.api_keys) <= 1:
@@ -40,6 +68,9 @@ class APIKeyRotator:
         return True
 
     def execute_with_retry(self, system_instruction: str, prompt_contents: Any, temp: float, response_schema: Any = None, mime_type: str = "text/plain"):
+        if not self.client:
+            raise ValueError("[ERROR] Critical Error: No Gemini API keys found in environment configuration or api_keys.json.")
+
         max_attempts = len(self.api_keys)
         for attempt in range(max_attempts):
             try:
