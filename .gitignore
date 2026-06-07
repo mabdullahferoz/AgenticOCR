@@ -1,6 +1,5 @@
 .env
 *.json
-*.db
 __pycache__
 venv
 dataset
