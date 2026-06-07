@@ -7,10 +7,10 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 from PIL import Image
-import pytesseract
+import easyocr
 
-# Ensure Tesseract binary path is linked for Windows environment execution
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# Initialize global EasyOCR engine for the backend
+ocr_engine = easyocr.Reader(['en'], gpu=False)
 
 # Import your pristine compiled multi-agent graph workflow system
 from agents.graph import agent_system
@@ -223,22 +223,25 @@ async def index_uploaded_document(
                     
                 print(f"[Server API]: Staged document image for indexing: {file_path}")
                 
-                # 2. Run Tesseract OCR to get spatial map
-                img = Image.open(file_path).convert('L')
-                ocr_data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+                # 2. Run EasyOCR to get spatial map
+                ocr_result = ocr_engine.readtext(file_path)
                 
                 spatial_map = []
                 full_text_words = []
-                n_boxes = len(ocr_data['text'])
-                for i_box in range(n_boxes):
-                    text = ocr_data['text'][i_box]
-                    if text.strip():  # ignore empty strings
+                
+                for (box, text, confidence) in ocr_result:
+                    if text.strip():
+                        left = float(min([pt[0] for pt in box]))
+                        right = float(max([pt[0] for pt in box]))
+                        top = float(min([pt[1] for pt in box]))
+                        bottom = float(max([pt[1] for pt in box]))
+                        
                         word_info = {
                             "word": text,
-                            "top": ocr_data['top'][i_box],
-                            "bottom": ocr_data['top'][i_box] + ocr_data['height'][i_box],
-                            "left": ocr_data['left'][i_box],
-                            "right": ocr_data['left'][i_box] + ocr_data['width'][i_box]
+                            "top": top,
+                            "bottom": bottom,
+                            "left": left,
+                            "right": right
                         }
                         spatial_map.append(word_info)
                         full_text_words.append(text)

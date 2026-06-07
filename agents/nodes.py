@@ -2,7 +2,7 @@ import os
 import sqlite3
 import json
 from PIL import Image
-import pytesseract
+import easyocr
 from config.api_manager import api_orchestrator
 from tools.spatial_geometry import find_phrase_coordinates
 from agents.state import AgenticSystemState
@@ -53,9 +53,12 @@ def input_vision_agent(state: AgenticSystemState):
     except Exception as e:
         print(f"[ERROR] [Input Vision Agent] Vision processing fallback to local OCR due to: {e}")
         try:
-            img_gray = Image.open(image_path).convert('L')
-            extracted_text = pytesseract.image_to_string(img_gray).strip()
-            resolved = " ".join(extracted_text.split())
+            reader = easyocr.Reader(['en'], gpu=False)
+            result = reader.readtext(image_path)
+            
+            texts = [text for (_, text, _) in result if text.strip()]
+                
+            resolved = " ".join(texts)
             return {"user_input": resolved, "resolved_query": resolved}
         except Exception as ocr_err:
             print(f"[ERROR] Critical local OCR fallback failure: {ocr_err}")

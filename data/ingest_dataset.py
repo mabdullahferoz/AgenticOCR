@@ -1,12 +1,13 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 import os
 import sqlite3
 import json
 import difflib
-import pytesseract
 import re
 from PIL import Image
+import easyocr
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 DB_PATH = os.path.join(BASE_DIR, "spatial_rag.db")
@@ -28,6 +29,8 @@ def get_closest_database_match(failed_word: str) -> str:
 def ingest_all_images():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    reader = easyocr.Reader(['en'], gpu=False)
     
     if not os.path.exists(DATASET_DIR):
         print("Dataset directory does not exist.")
@@ -71,21 +74,27 @@ def ingest_all_images():
 
                 print(f"Ingesting '{book_name}/{file_name}'...")
                 # OCR
-                img = Image.open(file_path).convert('L')
-                ocr_data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
+                result = reader.readtext(file_path)
                 
                 page_words, spatial_map = [], []
                 words_found, words_neglected = 0, 0
                 
-                for i in range(len(ocr_data['text'])):
-                    word = ocr_data['text'][i].strip()
-                    confidence = int(ocr_data['conf'][i]) if ocr_data['conf'][i] != '-1' else 0
-                    if word and confidence > 40:
+                for (box, word, confidence) in result:
+                    word = word.strip()
+                    conf_pct = confidence * 100
+                    
+                    if word and conf_pct > 40:
                         words_found += 1
                         page_words.append(word)
+                        
+                        left = float(min([pt[0] for pt in box]))
+                        right = float(max([pt[0] for pt in box]))
+                        top = float(min([pt[1] for pt in box]))
+                        bottom = float(max([pt[1] for pt in box]))
+                        
                         spatial_map.append({
-                            "word": word, "top": ocr_data['top'][i], "bottom": ocr_data['top'][i] + ocr_data['height'][i],
-                            "left": ocr_data['left'][i], "right": ocr_data['left'][i] + ocr_data['width'][i]
+                            "word": word, "top": top, "bottom": bottom,
+                            "left": left, "right": right
                         })
                     else:
                         words_neglected += 1
