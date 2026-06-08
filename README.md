@@ -151,3 +151,37 @@ npm run dev
 - **Multimodal Support**: Upload a cropped image of text, and the system will find its occurrences across the cataloged documents.
 - **Resilient API Handling**: Automatic rotation of Gemini API keys when quota limits are reached.
 - **Fuzzy Search Correction**: If an exact term isn't found, the system intelligently suggests the closest match from the database vocabulary and awaits user confirmation.
+
+---
+
+## Evaluation Module
+
+The evaluation logic and visual dashboard have been implemented in the `evaluation` directory to compare the ground-truth text from `AnimalFarm.pdf` against the OCR-extracted text currently stored in the SQLite database.
+
+### 1. Requirements Installed
+- Added dependencies `pypdf`, `jiwer`, and `python-Levenshtein` to extract PDF text and calculate advanced quality metrics such as Word Error Rate (WER) and Character Error Rate (CER).
+
+### 2. Evaluation Script (`evaluate.py`)
+- A comprehensive script that dynamically queries `spatial_rag.db`.
+  - **Note on Database Querying:** The text for Animal Farm is split across multiple documents (named `Book 1` through `Book 6`). The script correctly combines the text from all these books in the correct order to represent the full OCR payload.
+- Extracts text from `AnimalFarm.pdf` using `pypdf`.
+- Calculates key comparison metrics: Total words, Total characters, Levenshtein Distance, Jaccard Similarity, WER, and CER.
+- Outputs the calculations into `metrics.json`.
+
+### 3. Visual Dashboard (`dashboard.html`)
+- A beautiful, standalone dashboard webpage prioritizing premium modern aesthetics with a dark-mode, glassmorphism UI.
+- Implements `Chart.js` (via CDN) to render visual comparisons. 
+  - A bar chart compares absolute counts (characters and words).
+  - A polar area chart visually compares the various quality and similarity percentage metrics.
+- Features an interactive Data Table that displays the word frequency of every unique word found in the PDF and OCR text, alongside the exact difference between the counts.
+
+### How to View the Dashboard
+
+To view the dashboard, run a simple local web server from the `evaluation` directory so that the browser allows `fetch()` to read the local `metrics.json` file.
+
+1. Open your terminal and navigate to `dataset/evaluation` (or wherever your `evaluation` folder is located).
+2. Run a simple Python server:
+   ```bash
+   python -m http.server 8080
+   ```
+3. Open your web browser and go to `http://localhost:8080/dashboard.html`.

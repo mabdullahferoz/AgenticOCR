@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR vs Ground Truth Evaluation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-1: #38bdf8;
+            --accent-2: #818cf8;
+            --accent-error: #fb7185;
+            --accent-success: #34d399;
+        }
+
+        body {
+            margin: 0;
+            padding: 2rem;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.1), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(129, 140, 248, 0.15), transparent 25%);
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 0 0 0.5rem 0;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin: 0;
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-panel:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        /* Grid Layouts */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .metric-card h3 {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 1rem 0;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .metric-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .val-good { color: var(--accent-success); }
+        .val-bad { color: var(--accent-error); }
+        .val-neutral { color: var(--text-main); }
+
+        /* Table Section */
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border-radius: 10px;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 1;
+        }
+
+        th, td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        th {
+            color: var(--accent-1);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Scrollbar customization */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animations */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-state {
+            text-align: center;
+            color: var(--accent-error);
+            padding: 3rem;
+            background: var(--glass-bg);
+            border-radius: 20px;
+            border: 1px solid var(--accent-error);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Evaluation Dashboard</h1>
+        <p>OCR Database Extraction vs. Ground Truth PDF (Animal Farm)</p>
+    </header>
+
+    <div id="content" style="display: none;">
+        <!-- High-level Metrics -->
+        <div class="metrics-grid">
+            <div class="glass-panel metric-card">
+                <h3>Word Error Rate (WER)</h3>
+                <div class="metric-value val-bad" id="wer-val">--%</div>
+                <div class="metric-sub">Lower is better</div>
+            </div>
+            <div class="glass-panel metric-card">
+                <h3>Character Error Rate (CER)</h3>
+                <div class="metric-value val-bad" id="cer-val">--%</div>
+                <div class="metric-sub">Lower is better</div>
+            </div>
+            <div class="glass-panel metric-card">
+                <h3>Levenshtein Similarity</h3>
+                <div class="metric-value val-good" id="lev-val">--%</div>
+                <div class="metric-sub">Higher is better</div>
+            </div>
+            <div class="glass-panel metric-card">
+                <h3>Jaccard Similarity</h3>
+                <div class="metric-value val-good" id="jac-val">--%</div>
+                <div class="metric-sub">Unique Words Match</div>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="glass-panel metric-card" style="flex-direction: row; justify-content: space-around; padding: 1.5rem;">
+                <div>
+                    <h3>PDF Word Count</h3>
+                    <div class="metric-value val-neutral" id="pdf-word-val" style="font-size: 2rem;">--</div>
+                </div>
+                <div>
+                    <h3>OCR Word Count</h3>
+                    <div class="metric-value val-neutral" id="ocr-word-val" style="font-size: 2rem;">--</div>
+                </div>
+                <div>
+                    <h3>Diff</h3>
+                    <div class="metric-value val-bad" id="diff-word-val" style="font-size: 2rem;">--%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="glass-panel" style="display: flex; flex-direction: column;">
+                <h3 style="color: var(--text-muted); margin-top:0; text-transform:uppercase; font-size:0.9rem;">Counts Comparison</h3>
+                <div style="position: relative; height: 300px; width: 100%; flex: 1;">
+                    <canvas id="countsChart"></canvas>
+                </div>
+            </div>
+            <div class="glass-panel" style="display: flex; flex-direction: column;">
+                <h3 style="color: var(--text-muted); margin-top:0; text-transform:uppercase; font-size:0.9rem;">Quality Metrics (%)</h3>
+                <div style="position: relative; height: 300px; width: 100%; flex: 1;">
+                    <canvas id="qualityChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="color: var(--text-muted); margin: 0; text-transform:uppercase; font-size:0.9rem;">Unique Word Frequencies</h3>
+                <div id="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button id="prev-page" style="background: var(--glass-border); color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 5px; cursor: pointer;">Prev</button>
+                    <span id="page-info" style="font-size: 0.9rem; color: var(--text-muted);">Page 1</span>
+                    <button id="next-page" style="background: var(--glass-border); color: white; border: none; padding: 0.3rem 0.8rem; border-radius: 5px; cursor: pointer;">Next</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="freq-table">
+                    <thead>
+                        <tr>
+                            <th>Word</th>
+                            <th>PDF Count</th>
+                            <th>OCR Count</th>
+                            <th>Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Rows injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" style="text-align: center; padding: 5rem;">
+        <h2 style="color: var(--accent-1);">Loading Metrics...</h2>
+        <p style="color: var(--text-muted);">Ensure you are serving this via a local server (e.g. <code>python -m http.server</code>) to allow fetch() to read metrics.json.</p>
+    </div>
+
+    <script>
+        // Chart.js global defaults for dark theme
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(15, 23, 42, 0.9)';
+        Chart.defaults.plugins.tooltip.titleColor = '#f8fafc';
+        Chart.defaults.plugins.tooltip.bodyColor = '#f8fafc';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.1)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+
+        async function loadMetrics() {
+            try {
+                const response = await fetch('metrics.json');
+                if (!response.ok) throw new Error("Failed to load metrics.json");
+                const data = await response.json();
+
+                // Hide loading, show content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                // Populate Top Metrics
+                document.getElementById('wer-val').textContent = data.quality.wer_pct + '%';
+                document.getElementById('cer-val').textContent = data.quality.cer_pct + '%';
+                document.getElementById('lev-val').textContent = data.quality.levenshtein_similarity_pct + '%';
+                document.getElementById('jac-val').textContent = data.quality.jaccard_similarity_pct + '%';
+
+                document.getElementById('pdf-word-val').textContent = data.counts.pdf_word_count.toLocaleString();
+                document.getElementById('ocr-word-val').textContent = data.counts.ocr_word_count.toLocaleString();
+                document.getElementById('diff-word-val').textContent = data.counts.word_count_diff_pct + '%';
+
+                // Setup Counts Chart (Bar)
+                const ctxCounts = document.getElementById('countsChart').getContext('2d');
+                new Chart(ctxCounts, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Word Count (k)', 'Character Count (k)'],
+                        datasets: [
+                            {
+                                label: 'PDF (Ground Truth)',
+                                data: [data.counts.pdf_word_count / 1000, data.counts.pdf_char_count / 1000],
+                                backgroundColor: 'rgba(56, 189, 248, 0.8)',
+                                borderRadius: 6
+                            },
+                            {
+                                label: 'OCR Database',
+                                data: [data.counts.ocr_word_count / 1000, data.counts.ocr_char_count / 1000],
+                                backgroundColor: 'rgba(129, 140, 248, 0.8)',
+                                borderRadius: 6
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+
+                // Setup Quality Chart (Radar or Doughnut, going with Polar Area for visual flair)
+                const ctxQuality = document.getElementById('qualityChart').getContext('2d');
+                new Chart(ctxQuality, {
+                    type: 'polarArea',
+                    data: {
+                        labels: ['Levenshtein Sim', 'Jaccard Sim', '100 - WER', '100 - CER'],
+                        datasets: [{
+                            data: [
+                                data.quality.levenshtein_similarity_pct,
+                                data.quality.jaccard_similarity_pct,
+                                Math.max(0, 100 - data.quality.wer_pct),
+                                Math.max(0, 100 - data.quality.cer_pct)
+                            ],
+                            backgroundColor: [
+                                'rgba(52, 211, 153, 0.6)',
+                                'rgba(56, 189, 248, 0.6)',
+                                'rgba(251, 113, 133, 0.6)',
+                                'rgba(129, 140, 248, 0.6)'
+                            ],
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.1)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                ticks: { display: false },
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+
+                // Populate Table with Pagination
+                // Sort by absolute difference descending
+                window.wordFrequencies = data.word_frequencies.sort((a, b) => {
+                    const diffA = Math.abs(a.ocr_count - a.pdf_count);
+                    const diffB = Math.abs(b.ocr_count - b.pdf_count);
+                    return diffB - diffA;
+                });
+                window.currentPage = 1;
+                window.rowsPerPage = 100;
+
+                window.renderTable = function() {
+                    const tbody = document.querySelector('#freq-table tbody');
+                    tbody.innerHTML = '';
+                    
+                    const start = (window.currentPage - 1) * window.rowsPerPage;
+                    const end = start + window.rowsPerPage;
+                    const pageData = window.wordFrequencies.slice(start, end);
+                    
+                    pageData.forEach(item => {
+                        const diff = item.ocr_count - item.pdf_count;
+                        const diffEl = diff === 0 
+                            ? `<span style="color: var(--text-muted)">0</span>` 
+                            : (diff > 0 ? `<span style="color: var(--accent-1)">+${diff}</span>` : `<span style="color: var(--accent-error)">${diff}</span>`);
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight: 600;">${item.word}</td>
+                            <td>${item.pdf_count}</td>
+                            <td>${item.ocr_count}</td>
+                            <td>${diffEl}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                    
+                    const totalPages = Math.ceil(window.wordFrequencies.length / window.rowsPerPage);
+                    document.getElementById('page-info').textContent = `Page ${window.currentPage} of ${totalPages}`;
+                    document.getElementById('prev-page').disabled = window.currentPage === 1;
+                    document.getElementById('next-page').disabled = window.currentPage === totalPages;
+                    
+                    // Simple styling for disabled buttons
+                    document.getElementById('prev-page').style.opacity = window.currentPage === 1 ? '0.5' : '1';
+                    document.getElementById('prev-page').style.cursor = window.currentPage === 1 ? 'not-allowed' : 'pointer';
+                    document.getElementById('next-page').style.opacity = window.currentPage === totalPages ? '0.5' : '1';
+                    document.getElementById('next-page').style.cursor = window.currentPage === totalPages ? 'not-allowed' : 'pointer';
+                };
+
+                // Setup event listeners for pagination
+                document.getElementById('prev-page').onclick = () => {
+                    if (window.currentPage > 1) {
+                        window.currentPage--;
+                        window.renderTable();
+                    }
+                };
+
+                document.getElementById('next-page').onclick = () => {
+                    const totalPages = Math.ceil(window.wordFrequencies.length / window.rowsPerPage);
+                    if (window.currentPage < totalPages) {
+                        window.currentPage++;
+                        window.renderTable();
+                    }
+                };
+
+                // Initial render
+                window.renderTable();
+
+            } catch (err) {
+                document.getElementById('loading').innerHTML = `
+                    <div class="error-state">
+                        <h2>Error Loading Data</h2>
+                        <p>${err.message}</p>
+                        <p>Ensure that <code>metrics.json</code> exists in the same directory and you are running a local web server.</p>
+                        <code>python -m http.server 8080</code>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = loadMetrics;
+    </script>
+</body>
+</html>
